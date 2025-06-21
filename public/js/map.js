@@ -64,7 +64,7 @@ map.on('style.load', async () => {
         ['boolean', ['feature-state', 'hover'], false], 1, 0.5
       ]
     }
-  }, 'road-simple');
+  }, 'water');
 
   // Population Density Layer (initially hidden)
   map.addLayer({
@@ -93,7 +93,7 @@ map.on('style.load', async () => {
         ['boolean', ['feature-state', 'hover'], false], 1, 0.5
       ]
     }
-  }, 'road-simple');
+  }, 'water');
 
   // Hide density layer initially
   map.setLayoutProperty('city-fills-density', 'visibility', 'none');
@@ -129,7 +129,7 @@ map.on('style.load', async () => {
         ['boolean', ['feature-state', 'hover'], false], 1, 0.6
       ]
     }
-  }, 'road-simple');
+  }, 'water');
 
   // Add click event for popup
   map.on('click', 'city-fills-population', (e) => {
@@ -168,6 +168,39 @@ map.on('style.load', async () => {
         <button id="population-btn" class="layer-btn active">Total Population</button>
         <button id="density-btn" class="layer-btn">Population Density</button>
       </div>
+      <div class="color-key">
+        <div class="key-header">Population</div>
+        <div class="key-items">
+          <div class="key-item">
+            <div class="key-color" style="background: #53D6FC;"></div>
+            <div class="key-label">0 - 5K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #02C7FC;"></div>
+            <div class="key-label">5K - 25K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #018CB5;"></div>
+            <div class="key-label">25K - 100K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #d79ff7;"></div>
+            <div class="key-label">100K - 300K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #a654db;"></div>
+            <div class="key-label">300K - 600K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #7123a8;"></div>
+            <div class="key-label">600K+</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #808080;"></div>
+            <div class="key-label">CDP</div>
+          </div>
+        </div>
+      </div>
     `;
     
     // Add to the map container
@@ -176,6 +209,78 @@ map.on('style.load', async () => {
     
     console.log('Layer control added to:', mapContainer);
     console.log('Layer control element:', layerControl);
+
+    // Function to update color key
+    function updateColorKey(type) {
+      const keyHeader = layerControl.querySelector('.key-header');
+      const keyItems = layerControl.querySelector('.key-items');
+      
+      if (type === 'population') {
+        keyHeader.textContent = 'Population';
+        keyItems.innerHTML = `
+          <div class="key-item">
+            <div class="key-color" style="background: #53D6FC;"></div>
+            <div class="key-label">0 - 5K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #02C7FC;"></div>
+            <div class="key-label">5K - 25K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #018CB5;"></div>
+            <div class="key-label">25K - 100K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #d79ff7;"></div>
+            <div class="key-label">100K - 300K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #a654db;"></div>
+            <div class="key-label">300K - 600K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #7123a8;"></div>
+            <div class="key-label">600K+</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #808080;"></div>
+            <div class="key-label">CDP</div>
+          </div>
+        `;
+      } else {
+        keyHeader.textContent = 'Density (per sq mile)';
+        keyItems.innerHTML = `
+          <div class="key-item">
+            <div class="key-color" style="background: #e8f5e8;"></div>
+            <div class="key-label">0 - 100</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #90ee90;"></div>
+            <div class="key-label">100 - 500</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #32cd32;"></div>
+            <div class="key-label">500 - 1K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #ffd700;"></div>
+            <div class="key-label">1K - 2K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #ff8c00;"></div>
+            <div class="key-label">2K - 5K</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #ff4500;"></div>
+            <div class="key-label">5K+</div>
+          </div>
+          <div class="key-item">
+            <div class="key-color" style="background: #808080;"></div>
+            <div class="key-label">CDP</div>
+          </div>
+        `;
+      }
+    }
 
     // Layer switching functionality
     document.getElementById('population-btn').addEventListener('click', function() {
@@ -199,6 +304,9 @@ map.on('style.load', async () => {
           600000, '#7123a8' // Dark purple
         ]
       ]);
+      
+      // Update color key
+      updateColorKey('population');
       
       document.getElementById('population-btn').classList.add('active');
       document.getElementById('density-btn').classList.remove('active');
@@ -225,6 +333,9 @@ map.on('style.load', async () => {
           5000, '#ff4500'    // Red for high density
         ]
       ]);
+      
+      // Update color key
+      updateColorKey('density');
       
       document.getElementById('density-btn').classList.add('active');
       document.getElementById('population-btn').classList.remove('active');
@@ -311,11 +422,11 @@ map.on('style.load', async () => {
   });
 
   // Uncomment to see available layers
-  // const layers = map.getStyle().layers;
-  // console.log("Available layers:");
-  // layers.forEach(layer => {
-  //   console.log(layer.id);
-  // });
+  const layers = map.getStyle().layers;
+  console.log("Available layers:");
+  layers.forEach(layer => {
+    console.log(layer.id);
+  });
 
   console.log("Map loaded with Colorado cities");
 });

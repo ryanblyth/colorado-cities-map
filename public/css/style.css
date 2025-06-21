@@ -112,3 +112,43 @@ body {
   border-color: #3498db;
   font-weight: 600;
 }
+
+/* Color key styling */
+.color-key {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.key-header {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ecf0f1;
+}
+
+.key-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.key-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.key-color {
+  width: 16px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.key-label {
+  font-size: 11px;
+  color: #bdc3c7;
+  line-height: 1.2;
+}
