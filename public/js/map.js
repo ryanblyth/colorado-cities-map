@@ -14,7 +14,8 @@ const popup = new mapboxgl.Popup({
   maxWidth: '300px'
 });
 
-map.on('load', async () => {
+// Add city layers before the map fully loads to place them below base layers
+map.on('style.load', async () => {
   const response = await fetch('../data/colorado-cities-enriched-detailed-app.geojson');
   const geojson = await response.json();
 
@@ -48,10 +49,10 @@ map.on('load', async () => {
       ],
       'fill-opacity': [
         'case',
-        ['boolean', ['feature-state', 'hover'], false], 1, 0.8
+        ['boolean', ['feature-state', 'hover'], false], 1, 0.5
       ]
     }
-  });
+  }, 'road-simple');
 
   map.addLayer({
     id: 'city-borders',
@@ -68,7 +69,7 @@ map.on('load', async () => {
         ['boolean', ['feature-state', 'hover'], false], 1, 0.6
       ]
     }
-  });
+  }, 'road-simple');
 
   // Add hover effect
   let hoveredCityId = null;
@@ -124,6 +125,13 @@ map.on('load', async () => {
       .setHTML(popupContent)
       .addTo(map);
   });
+
+  // Uncomment to see available layers
+  // const layers = map.getStyle().layers;
+  // console.log("Available layers:");
+  // layers.forEach(layer => {
+  //   console.log(layer.id);
+  // });
 
   console.log("Map loaded with Colorado cities");
 });
