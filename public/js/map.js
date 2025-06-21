@@ -39,12 +39,12 @@ map.on('load', async () => {
         'interpolate',
         ['linear'],
         ['get', 'Total_Pop'],
-        0, '#e3f2fd',      // Very light blue for small cities
-        5000, '#bbdefb',   // Light blue
-        25000, '#90caf9',  // Medium light blue
-        100000, '#64b5f6', // Medium blue
-        500000, '#42a5f5', // Blue
-        1000000, '#2196f3' // Dark blue for large cities
+        0, '#53D6FC',      // Very light blue for small cities
+        5000, '#02C7FC',   // Light blue
+        25000, '#018CB5',  // Medium light blue
+        100000, '#d79ff7', // Light purple
+        300000, '#a654db', // Medium purple
+        600000, '#7123a8' // Dark purple
       ],
       'fill-opacity': [
         'case',
@@ -58,10 +58,10 @@ map.on('load', async () => {
     type: 'line',
     source: 'colorado-cities',
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#cccccc',
       'line-width': [
         'case',
-        ['boolean', ['feature-state', 'hover'], false], 2, 1
+        ['boolean', ['feature-state', 'hover'], false], 1, 0.5
       ],
       'line-opacity': [
         'case',
