@@ -210,6 +210,169 @@ map.on('style.load', async () => {
     console.log('Layer control added to:', mapContainer);
     console.log('Layer control element:', layerControl);
 
+    // Add chart toggle button
+    const chartToggle = document.createElement('button');
+    chartToggle.className = 'chart-toggle';
+    chartToggle.textContent = '📊 Show Charts';
+    mapContainer.appendChild(chartToggle);
+
+    // Chart functionality
+    let currentChart = null;
+    let chartData = null;
+
+    // Function to prepare chart data
+    function prepareChartData(data, type) {
+      const cities = data.features
+        .filter(f => !f.properties.NAMELSAD.includes('CDP'))
+        .sort((a, b) => b.properties[type === 'population' ? 'Total_Pop' : 'Pop_Density'] - a.properties[type === 'population' ? 'Total_Pop' : 'Pop_Density'])
+        .slice(0, 15); // Top 15 cities
+
+      return {
+        labels: cities.map(f => f.properties.NAME),
+        values: cities.map(f => f.properties[type === 'population' ? 'Total_Pop' : 'Pop_Density']),
+        colors: cities.map(f => {
+          if (f.properties.NAMELSAD.includes('CDP')) return '#808080';
+          if (type === 'population') {
+            const pop = f.properties.Total_Pop;
+            if (pop < 5000) return '#53D6FC';
+            if (pop < 25000) return '#02C7FC';
+            if (pop < 100000) return '#018CB5';
+            if (pop < 300000) return '#d79ff7';
+            if (pop < 600000) return '#a654db';
+            return '#7123a8';
+          } else {
+            const density = f.properties.Pop_Density;
+            if (density < 100) return '#e8f5e8';
+            if (density < 500) return '#90ee90';
+            if (density < 1000) return '#32cd32';
+            if (density < 2000) return '#ffd700';
+            if (density < 5000) return '#ff8c00';
+            return '#ff4500';
+          }
+        })
+      };
+    }
+
+    // Function to create/update chart
+    function updateChart(type) {
+      if (!chartData) return;
+
+      const data = prepareChartData(chartData, type);
+      const title = type === 'population' ? 'Top 15 Cities by Population' : 'Top 15 Cities by Population Density';
+      const yAxisTitle = type === 'population' ? 'Population' : 'Population Density (per sq mile)';
+
+      const options = {
+        chart: {
+          type: 'bar',
+          height: 220,
+          background: 'transparent',
+          toolbar: {
+            show: false
+          }
+        },
+        series: [{
+          name: yAxisTitle,
+          data: data.values
+        }],
+        xaxis: {
+          categories: data.labels,
+          labels: {
+            style: {
+              colors: '#bdc3c7',
+              fontSize: '11px'
+            }
+          }
+        },
+        yaxis: {
+          title: {
+            text: yAxisTitle,
+            style: {
+              color: '#ecf0f1',
+              fontSize: '12px'
+            }
+          },
+          labels: {
+            style: {
+              colors: '#bdc3c7',
+              fontSize: '11px'
+            }
+          }
+        },
+        colors: data.colors,
+        plotOptions: {
+          bar: {
+            borderRadius: 4,
+            dataLabels: {
+              position: 'top'
+            }
+          }
+        },
+        dataLabels: {
+          enabled: true,
+          formatter: function(val) {
+            return type === 'population' ? 
+              (val >= 1000 ? (val/1000).toFixed(1) + 'K' : val.toString()) :
+              val.toString();
+          },
+          style: {
+            fontSize: '10px',
+            colors: ['#2c3e50']
+          }
+        },
+        title: {
+          text: title,
+          align: 'left',
+          style: {
+            color: '#ecf0f1',
+            fontSize: '14px',
+            fontWeight: 600
+          }
+        },
+        grid: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          strokeDashArray: 3
+        }
+      };
+
+      if (currentChart) {
+        currentChart.destroy();
+      }
+
+      currentChart = new ApexCharts(document.querySelector("#chart-container"), options);
+      currentChart.render();
+    }
+
+    // Chart toggle functionality
+    chartToggle.addEventListener('click', function() {
+      const chartPane = document.getElementById('chart-pane');
+      const isExpanded = chartPane.classList.contains('expanded');
+      
+      if (isExpanded) {
+        chartPane.classList.remove('expanded');
+        chartToggle.textContent = '📊 Show Charts';
+      } else {
+        chartPane.classList.add('expanded');
+        chartToggle.textContent = '📊 Hide Charts';
+        if (!chartData) {
+          chartData = geojson;
+          updateChart('population');
+        }
+      }
+    });
+
+    // Chart control functionality
+    document.getElementById('chart-population-btn').addEventListener('click', function() {
+      document.getElementById('chart-population-btn').classList.add('active');
+      document.getElementById('chart-density-btn').classList.remove('active');
+      updateChart('population');
+    });
+
+    document.getElementById('chart-density-btn').addEventListener('click', function() {
+      document.getElementById('chart-density-btn').classList.add('active');
+      document.getElementById('chart-population-btn').classList.remove('active');
+      updateChart('density');
+    });
+
     // Function to update color key
     function updateColorKey(type) {
       const keyHeader = layerControl.querySelector('.key-header');
@@ -305,8 +468,13 @@ map.on('style.load', async () => {
         ]
       ]);
       
-      // Update color key
+      // Update color key and chart
       updateColorKey('population');
+      if (currentChart) {
+        document.getElementById('chart-population-btn').classList.add('active');
+        document.getElementById('chart-density-btn').classList.remove('active');
+        updateChart('population');
+      }
       
       document.getElementById('population-btn').classList.add('active');
       document.getElementById('density-btn').classList.remove('active');
@@ -334,8 +502,13 @@ map.on('style.load', async () => {
         ]
       ]);
       
-      // Update color key
+      // Update color key and chart
       updateColorKey('density');
+      if (currentChart) {
+        document.getElementById('chart-density-btn').classList.add('active');
+        document.getElementById('chart-population-btn').classList.remove('active');
+        updateChart('density');
+      }
       
       document.getElementById('density-btn').classList.add('active');
       document.getElementById('population-btn').classList.remove('active');
