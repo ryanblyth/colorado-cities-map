@@ -12,7 +12,8 @@ const popup = new mapboxgl.Popup({
   closeButton: true,
   closeOnClick: false,
   maxWidth: '300px',
-  className: 'custom-popup'
+  className: 'custom-popup',
+  focusAfterOpen: false
 });
 
 // Chart functionality - moved outside setTimeout for proper scope
@@ -20,12 +21,12 @@ let currentChart = null;
 let chartData = null;
 let selectedCity = null;
 
-// Function to get exact map color for a feature
-function getMapColor(feature, type) {
-  if (feature.properties.NAMELSAD.includes('CDP')) return '#808080';
+// Function to get city color from properties object
+function getCityColor(cityProperties, type) {
+  if (cityProperties.NAMELSAD.includes('CDP')) return '#808080';
   
   if (type === 'population') {
-    const pop = feature.properties.Total_Pop;
+    const pop = cityProperties.Total_Pop;
     if (pop < 5000) return '#53D6FC';
     if (pop < 25000) return '#02C7FC';
     if (pop < 100000) return '#018CB5';
@@ -33,7 +34,7 @@ function getMapColor(feature, type) {
     if (pop < 600000) return '#a654db';
     return '#7123a8';
   } else {
-    const density = feature.properties.Pop_Density;
+    const density = cityProperties.Pop_Density;
     if (density < 100) return '#e8f5e8';
     if (density < 500) return '#90ee90';
     if (density < 1000) return '#32cd32';
@@ -51,7 +52,7 @@ function prepareChartData(data, type) {
     .slice(0, 15); // Top 15 cities
 
   const colors = cities.map(f => {
-    const color = getMapColor(f, type);
+    const color = getCityColor(f.properties, type);
     console.log(`City: ${f.properties.NAME}, Value: ${f.properties[type === 'population' ? 'Total_Pop' : 'Pop_Density']}, Color: ${color}`);
     return color;
   });
@@ -75,40 +76,113 @@ function prepareChartData(data, type) {
   };
 }
 
+// Function to calculate state averages
+function calculateStateAverages(data) {
+  const cities = data.features.filter(f => !f.properties.NAMELSAD.includes('CDP'));
+  
+  const totals = cities.reduce((acc, city) => {
+    acc.population += city.properties.Total_Pop || 0;
+    acc.density += city.properties.Pop_Density || 0;
+    
+    // Only add valid income values (positive numbers)
+    const income = city.properties.Median_Income;
+    if (income && income > 0 && income !== -666666666) {
+      acc.income += income;
+      acc.validIncomeCount += 1;
+    }
+    
+    // Only add valid rent values
+    const rent = city.properties.Median_Rent;
+    if (rent && rent > 0 && rent !== -666666666) {
+      acc.rent += rent;
+      acc.validRentCount += 1;
+    }
+    
+    // Only add valid home value values
+    const homeValue = city.properties.Median_Home_Value;
+    if (homeValue && homeValue > 0 && homeValue !== -666666666) {
+      acc.homeValue += homeValue;
+      acc.validHomeValueCount += 1;
+    }
+    
+    // Only add valid poverty values
+    const poverty = city.properties.Poverty_Rate;
+    if (poverty && poverty >= 0 && poverty !== -666666666) {
+      acc.poverty += poverty;
+      acc.validPovertyCount += 1;
+    }
+    
+    acc.validCities += 1;
+    return acc;
+  }, {
+    population: 0,
+    density: 0,
+    income: 0,
+    rent: 0,
+    homeValue: 0,
+    poverty: 0,
+    validCities: 0,
+    validIncomeCount: 0,
+    validRentCount: 0,
+    validHomeValueCount: 0,
+    validPovertyCount: 0
+  });
+
+  return {
+    population: Math.round(totals.population / totals.validCities),
+    density: Math.round(totals.density / totals.validCities),
+    income: totals.validIncomeCount > 0 ? Math.round(totals.income / totals.validIncomeCount) : 0,
+    rent: totals.validRentCount > 0 ? Math.round(totals.rent / totals.validRentCount) : 0,
+    homeValue: totals.validHomeValueCount > 0 ? Math.round(totals.homeValue / totals.validHomeValueCount) : 0,
+    poverty: totals.validPovertyCount > 0 ? Math.round((totals.poverty / totals.validPovertyCount) * 100) / 100 : 0
+  };
+}
+
 // Function to prepare demographics chart data
-function prepareDemographicsData(cityData) {
-  if (!cityData) return null;
+function prepareDemographicsData(cityData, stateAverages) {
+  if (!cityData || !stateAverages) return null;
 
   const categories = [
-    'Population',
+    'Population Density',
     'Median Income',
     'Median Rent',
     'Median Home Value',
-    'Poverty Rate',
-    'Bachelor\'s Degree %'
+    'Poverty Rate'
   ];
 
-  const values = [
-    cityData.Total_Pop,
+  const cityValues = [
+    cityData.Pop_Density,
     cityData.Median_Income,
     cityData.Median_Rent,
     cityData.Median_Home_Value,
-    cityData.Poverty_Rate,
-    cityData.Pct_Bachelors_or_Higher
+    cityData.Poverty_Rate
+  ];
+
+  const stateValues = [
+    stateAverages.density,
+    stateAverages.income,
+    stateAverages.rent,
+    stateAverages.homeValue,
+    stateAverages.poverty
   ];
 
   // Format values for display
-  const formattedValues = values.map((val, index) => {
-    if (val === -666666666 || val === null || val === undefined) return 0;
-    if (index === 0) return val; // Population - keep as number
-    if (index === 4 || index === 5) return val; // Percentages - keep as number
-    return val; // Income values - keep as number
+  const formattedCityValues = cityValues.map((val, index) => {
+    if (val === -666666666 || val === null || val === undefined || val < 0 || isNaN(val)) return 0;
+    return val;
+  });
+
+  const formattedStateValues = stateValues.map((val, index) => {
+    if (val === -666666666 || val === null || val === undefined || val < 0 || isNaN(val)) return 0;
+    return val;
   });
 
   return {
     categories,
-    values: formattedValues,
-    rawValues: values
+    cityValues: formattedCityValues,
+    stateValues: formattedStateValues,
+    rawCityValues: cityValues,
+    rawStateValues: stateValues
   };
 }
 
@@ -179,102 +253,274 @@ function updateChart(type) {
       return;
     }
 
-    const demoData = prepareDemographicsData(selectedCity);
+    const demoData = prepareDemographicsData(selectedCity, calculateStateAverages(chartData));
     if (!demoData) return;
 
-    const options = {
-      chart: {
-        type: 'bar',
-        height: 380,
-        background: 'transparent',
-        toolbar: { show: false }
-      },
-      series: [{
-        name: 'Value',
-        data: demoData.values
-      }],
-      xaxis: {
-        categories: demoData.categories,
-        labels: {
-          style: {
-            colors: '#bdc3c7',
-            fontSize: '9px'
+    // Create 5 separate charts
+    const chartContainer = document.querySelector("#chart-container");
+    if (!chartContainer) {
+      console.error('Chart container not found');
+      return;
+    }
+
+    // Destroy existing chart if it exists
+    if (currentChart) {
+      try {
+        currentChart.destroy();
+      } catch (error) {
+        console.warn('Error destroying previous chart:', error);
+      }
+      currentChart = null;
+    }
+
+    // Clear the container and insert new HTML
+    chartContainer.innerHTML = '';
+    
+    // Insert the demographics grid HTML
+    chartContainer.innerHTML = `
+      <div class="demographics-grid">
+        <div class="chart-item">
+          <h4>Population Density</h4>
+          <div id="chart-population"></div>
+        </div>
+        <div class="chart-item">
+          <h4>Median Income</h4>
+          <div id="chart-income"></div>
+        </div>
+        <div class="chart-item">
+          <h4>Median Rent</h4>
+          <div id="chart-rent"></div>
+        </div>
+        <div class="chart-item">
+          <h4>Median Home Value</h4>
+          <div id="chart-home"></div>
+        </div>
+        <div class="chart-item">
+          <h4>Poverty Rate</h4>
+          <div id="chart-poverty"></div>
+        </div>
+      </div>
+    `;
+
+    console.log('HTML inserted, chart container now contains:', chartContainer.innerHTML);
+    console.log('Chart population container exists:', !!document.querySelector('#chart-population'));
+
+    // Force a reflow to ensure DOM is updated
+    chartContainer.offsetHeight;
+
+    // Create individual charts
+    const createIndividualChart = (containerId, title, cityValue, stateValue, formatType, cityColor) => {
+      const container = document.querySelector(containerId);
+      if (!container) {
+        console.error(`Container not found: ${containerId}`);
+        return null;
+      }
+
+      const options = {
+        chart: {
+          type: 'bar',
+          height: 160,
+          background: 'transparent',
+          toolbar: { show: false },
+          sparkline: { enabled: false }
+        },
+        series: [
+          {
+            name: selectedCity.NAME,
+            data: [cityValue]
           },
-          rotate: -45,
-          rotateAlways: true,
-          maxHeight: 80,
-          formatter: function(value) {
-            if (Array.isArray(value)) {
-              return value.join('\n');
+          {
+            name: 'State Avg',
+            data: [stateValue]
+          }
+        ],
+        xaxis: {
+          categories: [''],
+          labels: {
+            style: {
+              colors: '#bdc3c7',
+              fontSize: '9px'
+            },
+            formatter: function(val) {
+              // Handle non-numeric values and negative values
+              if (val === null || val === undefined || isNaN(val) || val === -666666666 || val < 0) {
+                return 'N/A';
+              }
+              if (formatType === 'density') return val.toString();
+              if (formatType === 'population') return val >= 1000 ? (val/1000).toFixed(1) + 'K' : val.toString();
+              if (formatType === 'percentage') return val.toFixed(1) + '%';
+              return '$' + (val >= 1000 ? (val/1000).toFixed(1) + 'K' : val.toString());
             }
-            return value;
           }
-        }
-      },
-      yaxis: {
-        labels: {
-          style: {
-            colors: '#bdc3c7',
-            fontSize: '11px'
-          },
+        },
+        yaxis: {
+          labels: {
+            style: {
+              colors: '#bdc3c7',
+              fontSize: '9px'
+            }
+          }
+        },
+        colors: [cityColor, '#3498db'],
+        plotOptions: {
+          bar: {
+            horizontal: true,
+            borderRadius: 2,
+            dataLabels: {
+              position: 'center'
+            }
+          }
+        },
+        legend: {
+          show: false
+        },
+        dataLabels: {
+          enabled: true,
           formatter: function(val) {
-            // Format based on data type
-            const index = demoData.values.indexOf(val);
-            if (index === 0) return val >= 1000 ? (val/1000).toFixed(1) + 'K' : val.toString();
-            if (index === 4 || index === 5) return val.toFixed(1) + '%';
+            // Handle non-numeric values and negative values
+            if (val === null || val === undefined || isNaN(val) || val === -666666666 || val < 0) {
+              return 'N/A';
+            }
+            if (formatType === 'density') return val.toString();
+            if (formatType === 'population') return val >= 1000 ? (val/1000).toFixed(1) + 'K' : val.toString();
+            if (formatType === 'percentage') return val.toFixed(1) + '%';
             return '$' + (val >= 1000 ? (val/1000).toFixed(1) + 'K' : val.toString());
-          }
-        }
-      },
-      colors: ['#3498db'],
-      plotOptions: {
-        bar: {
-          borderRadius: 4,
-          dataLabels: {
-            position: 'top'
-          }
-        }
-      },
-      legend: {
-        show: false
-      },
-      dataLabels: {
-        enabled: true,
-        formatter: function(val, { seriesIndex, dataPointIndex }) {
-          const rawVal = demoData.rawValues[dataPointIndex];
-          if (rawVal === -666666666 || rawVal === null || rawVal === undefined) return 'N/A';
-          
-          if (dataPointIndex === 0) return rawVal >= 1000 ? (rawVal/1000).toFixed(1) + 'K' : rawVal.toString();
-          if (dataPointIndex === 4 || dataPointIndex === 5) return rawVal.toFixed(1) + '%';
-          return '$' + (rawVal >= 1000 ? (rawVal/1000).toFixed(1) + 'K' : rawVal.toString());
+          },
+          style: {
+            fontSize: '9px',
+            colors: ['#ffffff'],
+            fontWeight: 600
+          },
+          offsetX: 0
         },
-        style: {
-          fontSize: '10px',
-          colors: ['#ffffff'],
-          fontWeight: 600
-        },
-        offsetY: -15
-      },
-      title: {
-        text: `Demographics: ${selectedCity.NAME}`,
-        align: 'left',
-        style: {
-          color: '#ecf0f1',
-          fontSize: '14px',
-          fontWeight: 600
+        grid: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          strokeDashArray: 2
         }
-      },
-      grid: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        strokeDashArray: 3
+      };
+
+      try {
+        return new ApexCharts(container, options);
+      } catch (error) {
+        console.error(`Error creating chart for ${containerId}:`, error);
+        return null;
       }
     };
 
-    if (currentChart) {
-      currentChart.destroy();
+    // Create all 5 charts with a small delay to ensure DOM is ready
+    const chartIds = ['#chart-population', '#chart-income', '#chart-rent', '#chart-home', '#chart-poverty'];
+    
+    setTimeout(() => {
+      try {
+        // Verify all chart containers exist before creating charts
+        const missingElements = chartIds.filter(id => !document.querySelector(id));
+        
+        if (missingElements.length > 0) {
+          console.error('Missing chart containers:', missingElements);
+          // Log the current state of the chart container
+          console.log('Chart container HTML:', chartContainer.innerHTML);
+          
+          // Try to recreate the HTML if it's missing
+          if (chartContainer.innerHTML.trim() === '') {
+            console.log('Chart container is empty, recreating HTML...');
+            chartContainer.innerHTML = `
+              <div class="demographics-grid">
+                <div class="chart-item">
+                  <h4>Population Density</h4>
+                  <div id="chart-population"></div>
+                </div>
+                <div class="chart-item">
+                  <h4>Median Income</h4>
+                  <div id="chart-income"></div>
+                </div>
+                <div class="chart-item">
+                  <h4>Median Rent</h4>
+                  <div id="chart-rent"></div>
+                </div>
+                <div class="chart-item">
+                  <h4>Median Home Value</h4>
+                  <div id="chart-home"></div>
+                </div>
+                <div class="chart-item">
+                  <h4>Poverty Rate</h4>
+                  <div id="chart-poverty"></div>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Try again with a longer delay
+          setTimeout(() => {
+            const retryMissingElements = chartIds.filter(id => !document.querySelector(id));
+            if (retryMissingElements.length > 0) {
+              console.error('Still missing chart containers after retry:', retryMissingElements);
+              console.log('Chart container HTML after retry:', chartContainer.innerHTML);
+              return;
+            }
+            createDemographicsCharts();
+          }, 200);
+          return;
+        }
+
+        // Additional verification that containers are empty and ready
+        const containersReady = chartIds.every(id => {
+          const container = document.querySelector(id);
+          return container && container.children.length === 0;
+        });
+
+        if (!containersReady) {
+          console.warn('Some chart containers are not ready, retrying...');
+          setTimeout(createDemographicsCharts, 100);
+          return;
+        }
+
+        createDemographicsCharts();
+      } catch (error) {
+        console.error('Error creating demographics charts:', error);
+      }
+    }, 100);
+
+    // Function to create the actual charts
+    function createDemographicsCharts() {
+      console.log('Creating demographics charts...');
+      console.log('Chart container HTML in createDemographicsCharts:', chartContainer.innerHTML);
+      console.log('Income data - City:', demoData.cityValues[1], 'State:', demoData.stateValues[1]);
+      console.log('Raw income data - City:', demoData.rawCityValues[1], 'State:', demoData.rawStateValues[1]);
+      
+      // Get the city's color from the map
+      const cityColor = getCityColor(selectedCity, 'population'); // Use population colors for consistency
+      
+      const charts = [
+        createIndividualChart('#chart-population', 'Population Density', demoData.cityValues[0], demoData.stateValues[0], 'density', cityColor),
+        createIndividualChart('#chart-income', 'Median Income', demoData.cityValues[1], demoData.stateValues[1], 'currency', cityColor),
+        createIndividualChart('#chart-rent', 'Median Rent', demoData.cityValues[2], demoData.stateValues[2], 'currency', cityColor),
+        createIndividualChart('#chart-home', 'Median Home Value', demoData.cityValues[3], demoData.stateValues[3], 'currency', cityColor),
+        createIndividualChart('#chart-poverty', 'Poverty Rate', demoData.cityValues[4], demoData.stateValues[4], 'percentage', cityColor)
+      ];
+
+      // Render all charts
+      charts.forEach((chart, index) => {
+        try {
+          if (chart === null) {
+            console.warn(`Chart ${chartIds[index]} was not created`);
+            return;
+          }
+          
+          const container = document.querySelector(chartIds[index]);
+          if (container && container.children.length === 0) {
+            chart.render();
+          } else {
+            console.warn(`Chart container ${chartIds[index]} is not ready`);
+          }
+        } catch (error) {
+          console.warn('Failed to render chart:', error);
+        }
+      });
+
+      // Store reference to the first valid chart for cleanup
+      const validCharts = charts.filter(chart => chart !== null);
+      currentChart = validCharts.length > 0 ? validCharts[0] : null;
     }
-    currentChart = new ApexCharts(document.querySelector("#chart-container"), options);
-    currentChart.render();
     return;
   }
 
@@ -380,6 +626,16 @@ function updateChart(type) {
 
   currentChart = new ApexCharts(document.querySelector("#chart-container"), options);
   currentChart.render();
+}
+
+// Function to fix popup accessibility issues
+function fixPopupAccessibility() {
+  setTimeout(() => {
+    const closeButton = document.querySelector('.mapboxgl-popup-close-button');
+    if (closeButton) {
+      closeButton.removeAttribute('aria-hidden');
+    }
+  }, 10);
 }
 
 // Add city layers before the map fully loads to place them below base layers
@@ -515,6 +771,9 @@ map.on('style.load', async () => {
       .setHTML(popupContent)
       .addTo(map);
     
+    // Fix accessibility issues
+    fixPopupAccessibility();
+    
     // Update demographics chart if it's active
     if (document.getElementById('chart-demographics-btn').classList.contains('active')) {
       updateChart('demographics');
@@ -535,6 +794,9 @@ map.on('style.load', async () => {
       .setLngLat(coordinates)
       .setHTML(popupContent)
       .addTo(map);
+    
+    // Fix accessibility issues
+    fixPopupAccessibility();
     
     // Update demographics chart if it's active
     if (document.getElementById('chart-demographics-btn').classList.contains('active')) {
