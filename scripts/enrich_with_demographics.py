@@ -50,8 +50,8 @@ def get_acs_data():
 
 
 def main():
-    input_geojson = Path("data/colorado-cities.geojson")
-    output_geojson = Path("data/colorado-cities-enriched.geojson")
+    input_geojson = Path("data/colorado-cities-detailed.geojson")
+    output_geojson = Path("data/colorado-cities-enriched-detailed.geojson")
 
     # Load existing Colorado GeoJSON
     gdf = gpd.read_file(input_geojson)

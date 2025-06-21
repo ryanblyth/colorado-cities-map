@@ -16,7 +16,7 @@ from pathlib import Path
 def main():
     # Define input and output paths
     input_path = Path("raw-data/tl_2024_08_place/tl_2024_08_place.shp")
-    output_path = Path("data/colorado-cities.geojson")
+    output_path = Path("data/colorado-cities-detailed.geojson")
 
     # Load shapefile
     gdf = gpd.read_file(input_path)
@@ -24,8 +24,8 @@ def main():
     # Reproject to WGS84
     gdf = gdf.to_crs(epsg=4326)
 
-    # Simplify geometry (optional, adjust tolerance as needed)
-    gdf["geometry"] = gdf["geometry"].simplify(0.001, preserve_topology=True)
+    # Simplify geometry (optional, adjust tolerance as needed, or disable if a performance is not an issue yet) 0.001 = ~100 meters of tolerance
+    # gdf["geometry"] = gdf["geometry"].simplify(0.001, preserve_topology=True)
 
     # Export to GeoJSON
     output_path.parent.mkdir(parents=True, exist_ok=True)
