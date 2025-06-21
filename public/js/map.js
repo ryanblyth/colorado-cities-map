@@ -37,15 +37,20 @@ map.on('style.load', async () => {
     source: 'colorado-cities',
     paint: {
       'fill-color': [
-        'interpolate',
-        ['linear'],
-        ['get', 'Total_Pop'],
-        0, '#53D6FC',      // Very light blue for small cities
-        5000, '#02C7FC',   // Light blue
-        25000, '#018CB5',  // Medium light blue
-        100000, '#d79ff7', // Light purple
-        300000, '#a654db', // Medium purple
-        600000, '#7123a8' // Dark purple
+        'case',
+        ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
+        '#808080', // Gray for CDPs
+        [
+          'interpolate',
+          ['linear'],
+          ['get', 'Total_Pop'],
+          0, '#53D6FC',      // Very light blue for small cities
+          5000, '#02C7FC',   // Light blue
+          25000, '#018CB5',  // Medium light blue
+          100000, '#d79ff7', // Light purple
+          300000, '#a654db', // Medium purple
+          600000, '#7123a8' // Dark purple
+        ]
       ],
       'fill-opacity': [
         'case',
@@ -59,7 +64,22 @@ map.on('style.load', async () => {
     type: 'line',
     source: 'colorado-cities',
     paint: {
-      'line-color': '#cccccc',
+      'line-color': [
+        'case',
+        ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
+        '#808080', // Gray for CDPs
+        [
+          'interpolate',
+          ['linear'],
+          ['get', 'Total_Pop'],
+          0, '#53D6FC',      // Very light blue for small cities
+          5000, '#02C7FC',   // Light blue
+          25000, '#018CB5',  // Medium light blue
+          100000, '#d79ff7', // Light purple
+          300000, '#a654db', // Medium purple
+          600000, '#7123a8' // Dark purple
+        ]
+      ],
       'line-width': [
         'case',
         ['boolean', ['feature-state', 'hover'], false], 1, 0.5
@@ -153,10 +173,20 @@ function formatPopupContent(properties) {
     return `${num.toFixed(1)}%`;
   };
 
+  // Parse place type from NAMELSAD
+  const getPlaceType = (namelsad) => {
+    if (namelsad.includes('CDP')) return 'Census Designated Place';
+    if (namelsad.includes('city')) return 'City';
+    if (namelsad.includes('town')) return 'Town';
+    return 'Place';
+  };
+
+  const placeType = getPlaceType(properties.NAMELSAD);
+
   return `
     <div class="popup-content">
       <h3>${properties.NAME}</h3>
-      <p><strong>Type:</strong> ${properties.NAMELSAD}</p>
+      <p><strong>Type:</strong> ${placeType}</p>
       
       <h4>Demographics</h4>
       <p><strong>Population:</strong> ${formatNumber(properties.Total_Pop)}</p>
