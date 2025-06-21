@@ -62,3 +62,53 @@ body {
   background-color: #ecf0f1;
   border-radius: 4px;
 }
+
+/* Layer control styling */
+.layer-control {
+  position: absolute;
+  width: 185px;
+  top: 20px;
+  left: 20px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 12px;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.layer-control-header {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ecf0f1;
+}
+
+.layer-control-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.layer-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.layer-btn.active {
+  background: #3498db;
+  border-color: #3498db;
+  font-weight: 600;
+}

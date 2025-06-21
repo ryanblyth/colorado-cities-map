@@ -19,11 +19,17 @@ map.on('style.load', async () => {
   const response = await fetch('../data/colorado-cities-enriched-detailed-app.geojson');
   const geojson = await response.json();
 
-  // Add IDs to features if they don't exist
+  // Add IDs to features if they don't exist and calculate population density
   geojson.features.forEach((feature, index) => {
     if (!feature.id) {
       feature.id = feature.properties.GEOID || index;
     }
+    
+    // Calculate population density (people per square mile)
+    // ALAND is in square meters, convert to square miles (1 sq mile = 2,589,988 sq meters)
+    const areaSqMiles = feature.properties.ALAND / 2589988;
+    feature.properties.Pop_Density = areaSqMiles > 0 ? 
+      Math.round(feature.properties.Total_Pop / areaSqMiles) : 0;
   });
 
   map.addSource('colorado-cities', {
@@ -31,8 +37,9 @@ map.on('style.load', async () => {
     data: geojson
   });
 
+  // Total Population Layer
   map.addLayer({
-    id: 'city-fills',
+    id: 'city-fills-population',
     type: 'fill',
     source: 'colorado-cities',
     paint: {
@@ -59,6 +66,39 @@ map.on('style.load', async () => {
     }
   }, 'road-simple');
 
+  // Population Density Layer (initially hidden)
+  map.addLayer({
+    id: 'city-fills-density',
+    type: 'fill',
+    source: 'colorado-cities',
+    paint: {
+      'fill-color': [
+        'case',
+        ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
+        '#808080', // Gray for CDPs
+        [
+          'interpolate',
+          ['linear'],
+          ['get', 'Pop_Density'],
+          0, '#e8f5e8',      // Very light green for low density
+          100, '#90ee90',    // Light green
+          500, '#32cd32',    // Medium green
+          1000, '#ffd700',   // Yellow
+          2000, '#ff8c00',   // Orange
+          5000, '#ff4500'    // Red for high density
+        ]
+      ],
+      'fill-opacity': [
+        'case',
+        ['boolean', ['feature-state', 'hover'], false], 1, 0.5
+      ]
+    }
+  }, 'road-simple');
+
+  // Hide density layer initially
+  map.setLayoutProperty('city-fills-density', 'visibility', 'none');
+
+  // Border layer (shared between both views)
   map.addLayer({
     id: 'city-borders',
     type: 'line',
@@ -91,14 +131,118 @@ map.on('style.load', async () => {
     }
   }, 'road-simple');
 
+  // Add click event for popup
+  map.on('click', 'city-fills-population', (e) => {
+    const coordinates = e.lngLat;
+    const properties = e.features[0].properties;
+    
+    // Format the popup content
+    const popupContent = formatPopupContent(properties);
+    
+    popup
+      .setLngLat(coordinates)
+      .setHTML(popupContent)
+      .addTo(map);
+  });
+
+  map.on('click', 'city-fills-density', (e) => {
+    const coordinates = e.lngLat;
+    const properties = e.features[0].properties;
+    
+    // Format the popup content
+    const popupContent = formatPopupContent(properties);
+    
+    popup
+      .setLngLat(coordinates)
+      .setHTML(popupContent)
+      .addTo(map);
+  });
+
+  // Add layer control after everything else is set up
+  setTimeout(() => {
+    const layerControl = document.createElement('div');
+    layerControl.className = 'layer-control';
+    layerControl.innerHTML = `
+      <div class="layer-control-header">Map Layer</div>
+      <div class="layer-control-buttons">
+        <button id="population-btn" class="layer-btn active">Total Population</button>
+        <button id="density-btn" class="layer-btn">Population Density</button>
+      </div>
+    `;
+    
+    // Add to the map container
+    const mapContainer = map.getContainer();
+    mapContainer.appendChild(layerControl);
+    
+    console.log('Layer control added to:', mapContainer);
+    console.log('Layer control element:', layerControl);
+
+    // Layer switching functionality
+    document.getElementById('population-btn').addEventListener('click', function() {
+      map.setLayoutProperty('city-fills-population', 'visibility', 'visible');
+      map.setLayoutProperty('city-fills-density', 'visibility', 'none');
+      
+      // Update border colors to match population layer
+      map.setPaintProperty('city-borders', 'line-color', [
+        'case',
+        ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
+        '#808080', // Gray for CDPs
+        [
+          'interpolate',
+          ['linear'],
+          ['get', 'Total_Pop'],
+          0, '#53D6FC',      // Very light blue for small cities
+          5000, '#02C7FC',   // Light blue
+          25000, '#018CB5',  // Medium light blue
+          100000, '#d79ff7', // Light purple
+          300000, '#a654db', // Medium purple
+          600000, '#7123a8' // Dark purple
+        ]
+      ]);
+      
+      document.getElementById('population-btn').classList.add('active');
+      document.getElementById('density-btn').classList.remove('active');
+    });
+
+    document.getElementById('density-btn').addEventListener('click', function() {
+      map.setLayoutProperty('city-fills-population', 'visibility', 'none');
+      map.setLayoutProperty('city-fills-density', 'visibility', 'visible');
+      
+      // Update border colors to match density layer
+      map.setPaintProperty('city-borders', 'line-color', [
+        'case',
+        ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
+        '#808080', // Gray for CDPs
+        [
+          'interpolate',
+          ['linear'],
+          ['get', 'Pop_Density'],
+          0, '#e8f5e8',      // Very light green for low density
+          100, '#90ee90',    // Light green
+          500, '#32cd32',    // Medium green
+          1000, '#ffd700',   // Yellow
+          2000, '#ff8c00',   // Orange
+          5000, '#ff4500'    // Red for high density
+        ]
+      ]);
+      
+      document.getElementById('density-btn').classList.add('active');
+      document.getElementById('population-btn').classList.remove('active');
+    });
+  }, 100);
+
   // Add hover effect
   let hoveredCityId = null;
 
-  map.on('mouseenter', 'city-fills', () => {
+  map.on('mouseenter', 'city-fills-population', () => {
     map.getCanvas().style.cursor = 'pointer';
   });
 
-  map.on('mousemove', 'city-fills', (e) => {
+  map.on('mouseenter', 'city-fills-density', () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+
+  map.on('mousemove', 'city-fills-population', (e) => {
     if (e.features.length > 0) {
       const newHoveredCityId = e.features[0].id;
       
@@ -121,7 +265,30 @@ map.on('style.load', async () => {
     }
   });
 
-  map.on('mouseleave', 'city-fills', () => {
+  map.on('mousemove', 'city-fills-density', (e) => {
+    if (e.features.length > 0) {
+      const newHoveredCityId = e.features[0].id;
+      
+      if (hoveredCityId !== newHoveredCityId) {
+        // Reset the previously hovered city
+        if (hoveredCityId !== null) {
+          map.setFeatureState(
+            { source: 'colorado-cities', id: hoveredCityId },
+            { hover: false }
+          );
+        }
+        
+        // Set the new hovered city
+        hoveredCityId = newHoveredCityId;
+        map.setFeatureState(
+          { source: 'colorado-cities', id: hoveredCityId },
+          { hover: true }
+        );
+      }
+    }
+  });
+
+  map.on('mouseleave', 'city-fills-population', () => {
     map.getCanvas().style.cursor = '';
     if (hoveredCityId !== null) {
       map.setFeatureState(
@@ -132,18 +299,15 @@ map.on('style.load', async () => {
     }
   });
 
-  // Add click event for popup
-  map.on('click', 'city-fills', (e) => {
-    const coordinates = e.lngLat;
-    const properties = e.features[0].properties;
-    
-    // Format the popup content
-    const popupContent = formatPopupContent(properties);
-    
-    popup
-      .setLngLat(coordinates)
-      .setHTML(popupContent)
-      .addTo(map);
+  map.on('mouseleave', 'city-fills-density', () => {
+    map.getCanvas().style.cursor = '';
+    if (hoveredCityId !== null) {
+      map.setFeatureState(
+        { source: 'colorado-cities', id: hoveredCityId },
+        { hover: false }
+      );
+      hoveredCityId = null;
+    }
   });
 
   // Uncomment to see available layers
@@ -190,6 +354,7 @@ function formatPopupContent(properties) {
       
       <h4>Demographics</h4>
       <p><strong>Population:</strong> ${formatNumber(properties.Total_Pop)}</p>
+      <p><strong>Population Density:</strong> ${formatNumber(properties.Pop_Density)} people/sq mile</p>
       <p><strong>Median Income:</strong> ${formatCurrency(properties.Median_Income)}</p>
       <p><strong>Poverty Rate:</strong> ${formatPercentage(properties.Poverty_Rate)}</p>
       
