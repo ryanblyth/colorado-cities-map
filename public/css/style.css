@@ -159,33 +159,28 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 300px;
+  height: 420px;
   background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(10px);
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   z-index: 1000;
   transform: translateY(100%);
   transition: transform 0.3s ease;
+  overflow: hidden;
+  visibility: hidden;
 }
 
 #chart-pane.expanded {
   transform: translateY(0);
+  visibility: visible;
 }
 
 .chart-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  padding: 16px 20px 12px 20px;
+  padding: 8px 20px 6px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.chart-header h3 {
-  margin: 0;
-  color: white;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 18px;
-  font-weight: 600;
 }
 
 .chart-controls {
@@ -217,8 +212,14 @@ body {
 }
 
 #chart-container {
-  height: calc(100% - 60px);
-  padding: 16px 20px;
+  height: calc(100% - 30px);
+  padding: 2px 20px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#chart-pane.expanded #chart-container {
+  opacity: 1;
 }
 
 /* Chart toggle button */
@@ -241,4 +242,41 @@ body {
 .chart-toggle:hover {
   background: rgba(0, 0, 0, 0.9);
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Custom popup styling to fix accessibility issues */
+.custom-popup .mapboxgl-popup-close-button {
+  font-size: 16px;
+  color: #666;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.custom-popup .mapboxgl-popup-close-button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.custom-popup .mapboxgl-popup-content {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Make data labels more readable */
+.apexcharts-datalabel {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+@media (max-width: 768px) {
+  .apexcharts-datalabel {
+    font-size: 7px !important;
+  }
 }
