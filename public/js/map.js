@@ -1,5 +1,17 @@
 mapboxgl.accessToken = 'pk.eyJ1IjoiaW5kZWxpYmUiLCJhIjoiY2xvM2k1Z25jMGZmbjJsbW9iMGV0M293cyJ9.UPel041iNYR3w_gq01-X8g';
 
+// Color variables for consistent use across the application
+const COLORS = {
+  // Population/Density color scale - more differentiated
+  VERY_LIGHT: '#8DF6FC',    // Brighter lightest blue
+  LIGHT: '#5DE7FC',          // Brighter light blue  
+  MEDIUM: '#4AACD5',        // Brighter medium blue
+  LIGHT_PURPLE: '#F7BFF7',  // Brighter light purple
+  MEDIUM_PURPLE: '#D674FB', // Brighter medium purple
+  DARK_PURPLE: '#A143C8',   // Brighter dark purple
+  CDP: '#808080'             // Gray for CDPs
+};
+
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/dark-v11',
@@ -27,20 +39,20 @@ function getCityColor(cityProperties, type) {
   
   if (type === 'population') {
     const pop = cityProperties.Total_Pop;
-    if (pop < 5000) return '#53D6FC';
-    if (pop < 25000) return '#02C7FC';
-    if (pop < 100000) return '#018CB5';
-    if (pop < 300000) return '#d79ff7';
-    if (pop < 600000) return '#a654db';
-    return '#7123a8';
+    if (pop < 5000) return COLORS.VERY_LIGHT;
+    if (pop < 25000) return COLORS.LIGHT;
+    if (pop < 100000) return COLORS.MEDIUM;
+    if (pop < 300000) return COLORS.LIGHT_PURPLE;
+    if (pop < 600000) return COLORS.MEDIUM_PURPLE;
+    return COLORS.DARK_PURPLE;
   } else {
     const density = cityProperties.Pop_Density;
-    if (density < 100) return '#53D6FC';
-    if (density < 500) return '#02C7FC';
-    if (density < 1000) return '#018CB5';
-    if (density < 2000) return '#d79ff7';
-    if (density < 5000) return '#a654db';
-    return '#7123a8';
+    if (density < 100) return COLORS.VERY_LIGHT;
+    if (density < 500) return COLORS.LIGHT;
+    if (density < 1000) return COLORS.MEDIUM;
+    if (density < 2000) return COLORS.LIGHT_PURPLE;
+    if (density < 5000) return COLORS.MEDIUM_PURPLE;
+    return COLORS.DARK_PURPLE;
   }
 }
 
@@ -670,17 +682,17 @@ map.on('style.load', async () => {
       'fill-color': [
         'case',
         ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
-        '#808080', // Gray for CDPs
+        COLORS.CDP, // Gray for CDPs
         [
           'interpolate',
           ['linear'],
           ['get', 'Total_Pop'],
-          0, '#53D6FC',      // Very light blue for small cities
-          5000, '#02C7FC',   // Light blue
-          25000, '#018CB5',  // Medium light blue
-          100000, '#d79ff7', // Light purple
-          300000, '#a654db', // Medium purple
-          600000, '#7123a8' // Dark purple
+          0, COLORS.VERY_LIGHT,      // Very light blue for small cities
+          5000, COLORS.LIGHT,        // Light blue
+          25000, COLORS.MEDIUM,      // Medium blue
+          100000, COLORS.LIGHT_PURPLE, // Light purple
+          300000, COLORS.MEDIUM_PURPLE, // Medium purple
+          600000, COLORS.DARK_PURPLE  // Dark purple
         ]
       ],
       'fill-opacity': [
@@ -699,17 +711,17 @@ map.on('style.load', async () => {
       'fill-color': [
         'case',
         ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
-        '#808080', // Gray for CDPs
+        COLORS.CDP, // Gray for CDPs
         [
           'interpolate',
           ['linear'],
           ['get', 'Pop_Density'],
-          0, '#53D6FC',      // Very light blue for low density
-          100, '#02C7FC',    // Light blue
-          500, '#018CB5',    // Medium light blue
-          1000, '#d79ff7',   // Light purple
-          2000, '#a654db',   // Medium purple
-          5000, '#7123a8'    // Dark purple
+          0, COLORS.VERY_LIGHT,      // Very light blue for low density
+          100, COLORS.LIGHT,         // Light blue
+          500, COLORS.MEDIUM,        // Medium blue
+          1000, COLORS.LIGHT_PURPLE, // Light purple
+          2000, COLORS.MEDIUM_PURPLE, // Medium purple
+          5000, COLORS.DARK_PURPLE   // Dark purple
         ]
       ],
       'fill-opacity': [
@@ -731,17 +743,17 @@ map.on('style.load', async () => {
       'line-color': [
         'case',
         ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
-        '#808080', // Gray for CDPs
+        COLORS.CDP, // Gray for CDPs
         [
           'interpolate',
           ['linear'],
           ['get', 'Total_Pop'],
-          0, '#53D6FC',      // Very light blue for small cities
-          5000, '#02C7FC',   // Light blue
-          25000, '#018CB5',  // Medium light blue
-          100000, '#d79ff7', // Light purple
-          300000, '#a654db', // Medium purple
-          600000, '#7123a8' // Dark purple
+          0, COLORS.VERY_LIGHT,      // Very light blue for small cities
+          5000, COLORS.LIGHT,        // Light blue
+          25000, COLORS.MEDIUM,      // Medium light blue
+          100000, COLORS.LIGHT_PURPLE, // Light purple
+          300000, COLORS.MEDIUM_PURPLE, // Medium purple
+          600000, COLORS.DARK_PURPLE  // Dark purple
         ]
       ],
       'line-width': [
@@ -862,6 +874,8 @@ map.on('style.load', async () => {
     chartToggle.textContent = '📊 Show Charts';
     mapContainer.appendChild(chartToggle);
 
+
+
     // Chart toggle functionality
     chartToggle.addEventListener('click', function() {
       const chartPane = document.getElementById('chart-pane');
@@ -879,6 +893,8 @@ map.on('style.load', async () => {
         }
       }
     });
+
+
 
     // Chart control functionality
     document.getElementById('chart-population-btn').addEventListener('click', function() {
@@ -911,31 +927,31 @@ map.on('style.load', async () => {
         keyHeader.textContent = 'Population';
         keyItems.innerHTML = `
           <div class="key-item">
-            <div class="key-color" style="background: #53D6FC;"></div>
+            <div class="key-color" style="background: ${COLORS.VERY_LIGHT};"></div>
             <div class="key-label">0 - 5K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #02C7FC;"></div>
+            <div class="key-color" style="background: ${COLORS.LIGHT};"></div>
             <div class="key-label">5K - 25K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #018CB5;"></div>
+            <div class="key-color" style="background: ${COLORS.MEDIUM};"></div>
             <div class="key-label">25K - 100K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #d79ff7;"></div>
+            <div class="key-color" style="background: ${COLORS.LIGHT_PURPLE};"></div>
             <div class="key-label">100K - 300K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #a654db;"></div>
+            <div class="key-color" style="background: ${COLORS.MEDIUM_PURPLE};"></div>
             <div class="key-label">300K - 600K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #7123a8;"></div>
+            <div class="key-color" style="background: ${COLORS.DARK_PURPLE};"></div>
             <div class="key-label">600K+</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #808080;"></div>
+            <div class="key-color" style="background: ${COLORS.CDP};"></div>
             <div class="key-label">CDP</div>
           </div>
         `;
@@ -983,17 +999,17 @@ map.on('style.load', async () => {
       map.setPaintProperty('city-borders', 'line-color', [
         'case',
         ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
-        '#808080', // Gray for CDPs
+        COLORS.CDP, // Gray for CDPs
         [
           'interpolate',
           ['linear'],
           ['get', 'Total_Pop'],
-          0, '#53D6FC',      // Very light blue for small cities
-          5000, '#02C7FC',   // Light blue
-          25000, '#018CB5',  // Medium light blue
-          100000, '#d79ff7', // Light purple
-          300000, '#a654db', // Medium purple
-          600000, '#7123a8' // Dark purple
+          0, COLORS.VERY_LIGHT,      // Very light blue for small cities
+          5000, COLORS.LIGHT,        // Light blue
+          25000, COLORS.MEDIUM,      // Medium light blue
+          100000, COLORS.LIGHT_PURPLE, // Light purple
+          300000, COLORS.MEDIUM_PURPLE, // Medium purple
+          600000, COLORS.DARK_PURPLE  // Dark purple
         ]
       ]);
       
@@ -1018,17 +1034,17 @@ map.on('style.load', async () => {
       map.setPaintProperty('city-borders', 'line-color', [
         'case',
         ['any', ['in', 'CDP', ['get', 'NAMELSAD']]],
-        '#808080', // Gray for CDPs
+        COLORS.CDP, // Gray for CDPs
         [
           'interpolate',
           ['linear'],
           ['get', 'Pop_Density'],
-          0, '#53D6FC',      // Very light blue for low density
-          100, '#02C7FC',    // Light blue
-          500, '#018CB5',    // Medium light blue
-          1000, '#d79ff7',   // Light purple
-          2000, '#a654db',   // Medium purple
-          5000, '#7123a8'    // Dark purple
+          0, COLORS.VERY_LIGHT,      // Very light blue for low density
+          100, COLORS.LIGHT,         // Light blue
+          500, COLORS.MEDIUM,        // Medium light blue
+          1000, COLORS.LIGHT_PURPLE, // Light purple
+          2000, COLORS.MEDIUM_PURPLE, // Medium purple
+          5000, COLORS.DARK_PURPLE   // Dark purple
         ]
       ]);
       
