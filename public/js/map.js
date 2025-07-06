@@ -33,6 +33,9 @@ let currentChart = null;
 let chartData = null;
 let selectedCity = null;
 
+// Track the current key type
+let currentKeyType = 'population';
+
 // Function to get city color from properties object
 function getCityColor(cityProperties, type) {
   if (cityProperties.NAMELSAD.includes('CDP')) return '#808080';
@@ -650,23 +653,115 @@ function fixPopupAccessibility() {
   }, 10);
 }
 
-// Add city layers before the map fully loads to place them below base layers
-map.on('style.load', async () => {
-  const response = await fetch('../data/colorado-cities-enriched-detailed-app.geojson');
-  const geojson = await response.json();
+  // Add city layers before the map fully loads to place them below base layers
+  map.on('style.load', async () => {
+    const response = await fetch('../data/colorado-cities-enriched-detailed-app.geojson');
+    const geojson = await response.json();
+    chartData = geojson;
 
-  // Add IDs to features if they don't exist and calculate population density
-  geojson.features.forEach((feature, index) => {
-    if (!feature.id) {
-      feature.id = feature.properties.GEOID || index;
+    // Add IDs to features if they don't exist and calculate population density
+    geojson.features.forEach((feature, index) => {
+      if (!feature.id) {
+        feature.id = feature.properties.GEOID || index;
+      }
+      
+      // Calculate population density (people per square mile)
+      // ALAND is in square meters, convert to square miles (1 sq mile = 2,589,988 sq meters)
+      const areaSqMiles = feature.properties.ALAND / 2589988;
+      feature.properties.Pop_Density = areaSqMiles > 0 ? 
+        Math.round(feature.properties.Total_Pop / areaSqMiles) : 0;
+    });
+
+    // Variables for key highlighting
+    let clickedKeyItem = null;
+    let highlightedFeatures = [];
+
+    // Function to highlight cities by range
+    function highlightCitiesByRange(range, type, highlight) {
+      if (!range) return; // Safety check for undefined/null range
+      
+      const data = chartData || geojson;
+      if (!data) return;
+      
+      const features = data.features;
+      const highlightedFeatures = [];
+      
+      features.forEach(feature => {
+        if (!feature.properties) return; // skip if properties is missing
+        let shouldHighlight = false;
+        const properties = feature.properties;
+        
+        if (range === 'cdp') {
+          shouldHighlight = properties.NAMELSAD && properties.NAMELSAD.includes('CDP');
+        } else {
+          const value = type === 'population' ? properties.Total_Pop : properties.Pop_Density;
+          
+          if (range.includes('+')) {
+            // Handle ranges like "600000+" or "5000+"
+            const minValue = parseInt(range.replace('+', ''));
+            shouldHighlight = value >= minValue;
+          } else {
+            // Handle ranges like "0-5000" or "100-500"
+            const [min, max] = range.split('-').map(v => parseInt(v));
+            shouldHighlight = value >= min && value < max;
+          }
+        }
+        
+        if (shouldHighlight) {
+          map.setFeatureState(
+            { source: 'colorado-cities', id: feature.id },
+            { keyHighlight: highlight }
+          );
+          if (highlight) {
+            highlightedFeatures.push(feature.id);
+          }
+        }
+      });
     }
-    
-    // Calculate population density (people per square mile)
-    // ALAND is in square meters, convert to square miles (1 sq mile = 2,589,988 sq meters)
-    const areaSqMiles = feature.properties.ALAND / 2589988;
-    feature.properties.Pop_Density = areaSqMiles > 0 ? 
-      Math.round(feature.properties.Total_Pop / areaSqMiles) : 0;
-  });
+
+    // Function to clear all highlights
+    function clearAllHighlights() {
+      const data = chartData || geojson;
+      if (!data) return;
+      
+      data.features.forEach(feature => {
+        map.setFeatureState(
+          { source: 'colorado-cities', id: feature.id },
+          { keyHighlight: false }
+        );
+      });
+    }
+
+    // Function to add event listeners to key items
+    function addKeyItemEventListeners(layerControl) {
+      const keyItems = layerControl.querySelectorAll('.key-item');
+      keyItems.forEach(item => {
+        item.addEventListener('mouseenter', (event) => {
+          if (clickedKeyItem && clickedKeyItem !== event.currentTarget) return;
+          const range = event.currentTarget.dataset.range;
+          highlightCitiesByRange(range, currentKeyType, true);
+        });
+        item.addEventListener('mouseleave', (event) => {
+          if (clickedKeyItem && clickedKeyItem !== event.currentTarget) return;
+          const range = event.currentTarget.dataset.range;
+          highlightCitiesByRange(range, currentKeyType, false);
+        });
+        item.addEventListener('click', (event) => {
+          const clickedItem = event.currentTarget;
+          if (clickedKeyItem === clickedItem) {
+            clickedKeyItem = null;
+            clearAllHighlights();
+            clickedItem.classList.remove('clicked');
+          } else {
+            if (clickedKeyItem) clickedKeyItem.classList.remove('clicked');
+            clickedKeyItem = clickedItem;
+            clickedItem.classList.add('clicked');
+            const range = clickedItem.dataset.range;
+            highlightCitiesByRange(range, currentKeyType, true);
+          }
+        });
+      });
+    }
 
   map.addSource('colorado-cities', {
     type: 'geojson',
@@ -697,7 +792,10 @@ map.on('style.load', async () => {
       ],
       'fill-opacity': [
         'case',
-        ['boolean', ['feature-state', 'hover'], false], 1, 0.5
+        ['boolean', ['feature-state', 'hover'], false], 1,
+        ['case',
+          ['boolean', ['feature-state', 'keyHighlight'], false], 0.8, 0.5
+        ]
       ]
     }
   }, 'water');
@@ -726,7 +824,10 @@ map.on('style.load', async () => {
       ],
       'fill-opacity': [
         'case',
-        ['boolean', ['feature-state', 'hover'], false], 1, 0.5
+        ['boolean', ['feature-state', 'hover'], false], 1,
+        ['case',
+          ['boolean', ['feature-state', 'keyHighlight'], false], 0.8, 0.5
+        ]
       ]
     }
   }, 'water');
@@ -829,31 +930,31 @@ map.on('style.load', async () => {
       <div class="color-key">
         <div class="key-header">Population</div>
         <div class="key-items">
-          <div class="key-item">
+          <div class="key-item" data-range="0-5000">
             <div class="key-color" style="background: #53D6FC;"></div>
             <div class="key-label">0 - 5K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="5000-25000">
             <div class="key-color" style="background: #02C7FC;"></div>
             <div class="key-label">5K - 25K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="25000-100000">
             <div class="key-color" style="background: #018CB5;"></div>
             <div class="key-label">25K - 100K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="100000-300000">
             <div class="key-color" style="background: #d79ff7;"></div>
             <div class="key-label">100K - 300K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="300000-600000">
             <div class="key-color" style="background: #a654db;"></div>
             <div class="key-label">300K - 600K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="600000+">
             <div class="key-color" style="background: #7123a8;"></div>
             <div class="key-label">600K+</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="cdp">
             <div class="key-color" style="background: #808080;"></div>
             <div class="key-label">CDP</div>
           </div>
@@ -868,13 +969,43 @@ map.on('style.load', async () => {
     console.log('Layer control added to:', mapContainer);
     console.log('Layer control element:', layerControl);
 
+    // Add event listeners to initial key items
+    addKeyItemEventListeners(layerControl);
+
+    // Inject styles for key-item interactivity if not present
+    if (!document.getElementById('key-item-style')) {
+      const style = document.createElement('style');
+      style.id = 'key-item-style';
+      style.textContent = `
+        .key-item {
+          cursor: pointer;
+          transition: box-shadow 0.2s, background 0.2s;
+          border-radius: 2px;
+          padding: 2px;
+          border: 1px solid transparent;
+        }
+        .key-item:last-child { margin-bottom: 0; }
+        .key-item:hover {
+          box-shadow: 0 0 0 1px #fff, 0 0 6px 1px rgba(0,0,0,0.10);
+          background: rgba(255,255,255,0.05);
+          border-radius: 2px;
+          border: 1px solid #fff;
+        }
+        .key-item.clicked {
+          box-shadow: 0 0 0 1px #fff, 0 0 8px 2px rgba(0,0,0,0.15);
+          background: rgba(255,255,255,0.10);
+          border-radius: 2px;
+          border: 1px solid #fff;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     // Add chart toggle button
     const chartToggle = document.createElement('button');
     chartToggle.className = 'chart-toggle';
     chartToggle.textContent = '📊 Show Charts';
     mapContainer.appendChild(chartToggle);
-
-
 
     // Chart toggle functionality
     chartToggle.addEventListener('click', function() {
@@ -893,8 +1024,6 @@ map.on('style.load', async () => {
         }
       }
     });
-
-
 
     // Chart control functionality
     document.getElementById('chart-population-btn').addEventListener('click', function() {
@@ -919,38 +1048,39 @@ map.on('style.load', async () => {
     });
 
     // Function to update color key
-    function updateColorKey(type) {
+    function updateColorKey(type, layerControl) {
+      currentKeyType = type;
       const keyHeader = layerControl.querySelector('.key-header');
       const keyItems = layerControl.querySelector('.key-items');
       
       if (type === 'population') {
         keyHeader.textContent = 'Population';
         keyItems.innerHTML = `
-          <div class="key-item">
+          <div class="key-item" data-range="0-5000">
             <div class="key-color" style="background: ${COLORS.VERY_LIGHT};"></div>
             <div class="key-label">0 - 5K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="5000-25000">
             <div class="key-color" style="background: ${COLORS.LIGHT};"></div>
             <div class="key-label">5K - 25K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="25000-100000">
             <div class="key-color" style="background: ${COLORS.MEDIUM};"></div>
             <div class="key-label">25K - 100K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="100000-300000">
             <div class="key-color" style="background: ${COLORS.LIGHT_PURPLE};"></div>
             <div class="key-label">100K - 300K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="300000-600000">
             <div class="key-color" style="background: ${COLORS.MEDIUM_PURPLE};"></div>
             <div class="key-label">300K - 600K</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="600000+">
             <div class="key-color" style="background: ${COLORS.DARK_PURPLE};"></div>
             <div class="key-label">600K+</div>
           </div>
-          <div class="key-item">
+          <div class="key-item" data-range="cdp">
             <div class="key-color" style="background: ${COLORS.CDP};"></div>
             <div class="key-label">CDP</div>
           </div>
@@ -958,40 +1088,45 @@ map.on('style.load', async () => {
       } else {
         keyHeader.textContent = 'Density (per sq mile)';
         keyItems.innerHTML = `
-          <div class="key-item">
-            <div class="key-color" style="background: #53D6FC;"></div>
+          <div class="key-item" data-range="0-100">
+            <div class="key-color" style="background: ${COLORS.VERY_LIGHT};"></div>
             <div class="key-label">0 - 100</div>
           </div>
-          <div class="key-item">
-            <div class="key-color" style="background: #02C7FC;"></div>
+          <div class="key-item" data-range="100-500">
+            <div class="key-color" style="background: ${COLORS.LIGHT};"></div>
             <div class="key-label">100 - 500</div>
           </div>
-          <div class="key-item">
-            <div class="key-color" style="background: #018CB5;"></div>
+          <div class="key-item" data-range="500-1000">
+            <div class="key-color" style="background: ${COLORS.MEDIUM};"></div>
             <div class="key-label">500 - 1K</div>
           </div>
-          <div class="key-item">
-            <div class="key-color" style="background: #d79ff7;"></div>
+          <div class="key-item" data-range="1000-2000">
+            <div class="key-color" style="background: ${COLORS.LIGHT_PURPLE};"></div>
             <div class="key-label">1K - 2K</div>
           </div>
-          <div class="key-item">
-            <div class="key-color" style="background: #a654db;"></div>
+          <div class="key-item" data-range="2000-5000">
+            <div class="key-color" style="background: ${COLORS.MEDIUM_PURPLE};"></div>
             <div class="key-label">2K - 5K</div>
           </div>
-          <div class="key-item">
-            <div class="key-color" style="background: #7123a8;"></div>
+          <div class="key-item" data-range="5000+">
+            <div class="key-color" style="background: ${COLORS.DARK_PURPLE};"></div>
             <div class="key-label">5K+</div>
           </div>
-          <div class="key-item">
-            <div class="key-color" style="background: #808080;"></div>
+          <div class="key-item" data-range="cdp">
+            <div class="key-color" style="background: ${COLORS.CDP};"></div>
             <div class="key-label">CDP</div>
           </div>
         `;
       }
+      
+      // Add event listeners to key items
+      addKeyItemEventListeners(layerControl);
     }
 
     // Layer switching functionality
     document.getElementById('population-btn').addEventListener('click', function() {
+      clearAllHighlights();
+      updateColorKey('population', layerControl);
       map.setLayoutProperty('city-fills-population', 'visibility', 'visible');
       map.setLayoutProperty('city-fills-density', 'visibility', 'none');
       
@@ -1013,20 +1148,13 @@ map.on('style.load', async () => {
         ]
       ]);
       
-      // Update color key and chart
-      updateColorKey('population');
-      if (currentChart) {
-        document.getElementById('chart-population-btn').classList.add('active');
-        document.getElementById('chart-density-btn').classList.remove('active');
-        document.getElementById('chart-demographics-btn').classList.remove('active');
-        updateChart('population');
-      }
-      
       document.getElementById('population-btn').classList.add('active');
       document.getElementById('density-btn').classList.remove('active');
     });
 
     document.getElementById('density-btn').addEventListener('click', function() {
+      clearAllHighlights();
+      updateColorKey('density', layerControl);
       map.setLayoutProperty('city-fills-population', 'visibility', 'none');
       map.setLayoutProperty('city-fills-density', 'visibility', 'visible');
       
@@ -1047,15 +1175,6 @@ map.on('style.load', async () => {
           5000, COLORS.DARK_PURPLE   // Dark purple
         ]
       ]);
-      
-      // Update color key and chart
-      updateColorKey('density');
-      if (currentChart) {
-        document.getElementById('chart-density-btn').classList.add('active');
-        document.getElementById('chart-population-btn').classList.remove('active');
-        document.getElementById('chart-demographics-btn').classList.remove('active');
-        updateChart('density');
-      }
       
       document.getElementById('density-btn').classList.add('active');
       document.getElementById('population-btn').classList.remove('active');
@@ -1199,3 +1318,5 @@ function formatPopupContent(properties) {
     </div>
   `;
 }
+
+
