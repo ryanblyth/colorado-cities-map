@@ -35,12 +35,12 @@ function getCityColor(cityProperties, type) {
     return '#7123a8';
   } else {
     const density = cityProperties.Pop_Density;
-    if (density < 100) return '#e8f5e8';
-    if (density < 500) return '#90ee90';
-    if (density < 1000) return '#32cd32';
-    if (density < 2000) return '#ffd700';
-    if (density < 5000) return '#ff8c00';
-    return '#ff4500';
+    if (density < 100) return '#53D6FC';
+    if (density < 500) return '#02C7FC';
+    if (density < 1000) return '#018CB5';
+    if (density < 2000) return '#d79ff7';
+    if (density < 5000) return '#a654db';
+    return '#7123a8';
   }
 }
 
@@ -704,12 +704,12 @@ map.on('style.load', async () => {
           'interpolate',
           ['linear'],
           ['get', 'Pop_Density'],
-          0, '#e8f5e8',      // Very light green for low density
-          100, '#90ee90',    // Light green
-          500, '#32cd32',    // Medium green
-          1000, '#ffd700',   // Yellow
-          2000, '#ff8c00',   // Orange
-          5000, '#ff4500'    // Red for high density
+          0, '#53D6FC',      // Very light blue for low density
+          100, '#02C7FC',    // Light blue
+          500, '#018CB5',    // Medium light blue
+          1000, '#d79ff7',   // Light purple
+          2000, '#a654db',   // Medium purple
+          5000, '#7123a8'    // Dark purple
         ]
       ],
       'fill-opacity': [
@@ -943,27 +943,27 @@ map.on('style.load', async () => {
         keyHeader.textContent = 'Density (per sq mile)';
         keyItems.innerHTML = `
           <div class="key-item">
-            <div class="key-color" style="background: #e8f5e8;"></div>
+            <div class="key-color" style="background: #53D6FC;"></div>
             <div class="key-label">0 - 100</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #90ee90;"></div>
+            <div class="key-color" style="background: #02C7FC;"></div>
             <div class="key-label">100 - 500</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #32cd32;"></div>
+            <div class="key-color" style="background: #018CB5;"></div>
             <div class="key-label">500 - 1K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #ffd700;"></div>
+            <div class="key-color" style="background: #d79ff7;"></div>
             <div class="key-label">1K - 2K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #ff8c00;"></div>
+            <div class="key-color" style="background: #a654db;"></div>
             <div class="key-label">2K - 5K</div>
           </div>
           <div class="key-item">
-            <div class="key-color" style="background: #ff4500;"></div>
+            <div class="key-color" style="background: #7123a8;"></div>
             <div class="key-label">5K+</div>
           </div>
           <div class="key-item">
@@ -1023,12 +1023,12 @@ map.on('style.load', async () => {
           'interpolate',
           ['linear'],
           ['get', 'Pop_Density'],
-          0, '#e8f5e8',      // Very light green for low density
-          100, '#90ee90',    // Light green
-          500, '#32cd32',    // Medium green
-          1000, '#ffd700',   // Yellow
-          2000, '#ff8c00',   // Orange
-          5000, '#ff4500'    // Red for high density
+          0, '#53D6FC',      // Very light blue for low density
+          100, '#02C7FC',    // Light blue
+          500, '#018CB5',    // Medium light blue
+          1000, '#d79ff7',   // Light purple
+          2000, '#a654db',   // Medium purple
+          5000, '#7123a8'    // Dark purple
         ]
       ]);
       
