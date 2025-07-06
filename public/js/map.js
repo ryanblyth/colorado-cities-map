@@ -12,6 +12,24 @@ const COLORS = {
   CDP: '#808080'             // Gray for CDPs
 };
 
+// Population thresholds for color mapping
+const POPULATION_THRESHOLDS = {
+  SMALL: 5000,
+  MEDIUM: 25000,
+  LARGE: 100000,
+  VERY_LARGE: 300000,
+  MEGA: 600000
+};
+
+// Density thresholds for color mapping
+const DENSITY_THRESHOLDS = {
+  LOW: 100,
+  MEDIUM: 500,
+  HIGH: 1000,
+  VERY_HIGH: 2000,
+  EXTREME: 5000
+};
+
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/dark-v11',
@@ -36,25 +54,30 @@ let selectedCity = null;
 // Track the current key type
 let currentKeyType = 'population';
 
-// Function to get city color from properties object
+/**
+ * Gets the appropriate color for a city based on its properties and display type
+ * @param {Object} cityProperties - The city's properties from GeoJSON
+ * @param {string} type - The display type ('population' or 'density')
+ * @returns {string} The color hex code for the city
+ */
 function getCityColor(cityProperties, type) {
-  if (cityProperties.NAMELSAD.includes('CDP')) return '#808080';
+  if (cityProperties.NAMELSAD.includes('CDP')) return COLORS.CDP;
   
   if (type === 'population') {
     const pop = cityProperties.Total_Pop;
-    if (pop < 5000) return COLORS.VERY_LIGHT;
-    if (pop < 25000) return COLORS.LIGHT;
-    if (pop < 100000) return COLORS.MEDIUM;
-    if (pop < 300000) return COLORS.LIGHT_PURPLE;
-    if (pop < 600000) return COLORS.MEDIUM_PURPLE;
+    if (pop < POPULATION_THRESHOLDS.SMALL) return COLORS.VERY_LIGHT;
+    if (pop < POPULATION_THRESHOLDS.MEDIUM) return COLORS.LIGHT;
+    if (pop < POPULATION_THRESHOLDS.LARGE) return COLORS.MEDIUM;
+    if (pop < POPULATION_THRESHOLDS.VERY_LARGE) return COLORS.LIGHT_PURPLE;
+    if (pop < POPULATION_THRESHOLDS.MEGA) return COLORS.MEDIUM_PURPLE;
     return COLORS.DARK_PURPLE;
   } else {
     const density = cityProperties.Pop_Density;
-    if (density < 100) return COLORS.VERY_LIGHT;
-    if (density < 500) return COLORS.LIGHT;
-    if (density < 1000) return COLORS.MEDIUM;
-    if (density < 2000) return COLORS.LIGHT_PURPLE;
-    if (density < 5000) return COLORS.MEDIUM_PURPLE;
+    if (density < DENSITY_THRESHOLDS.LOW) return COLORS.VERY_LIGHT;
+    if (density < DENSITY_THRESHOLDS.MEDIUM) return COLORS.LIGHT;
+    if (density < DENSITY_THRESHOLDS.HIGH) return COLORS.MEDIUM;
+    if (density < DENSITY_THRESHOLDS.VERY_HIGH) return COLORS.LIGHT_PURPLE;
+    if (density < DENSITY_THRESHOLDS.EXTREME) return COLORS.MEDIUM_PURPLE;
     return COLORS.DARK_PURPLE;
   }
 }
@@ -68,7 +91,6 @@ function prepareChartData(data, type) {
 
   const colors = cities.map(f => {
     const color = getCityColor(f.properties, type);
-    console.log(`City: ${f.properties.NAME}, Value: ${f.properties[type === 'population' ? 'Total_Pop' : 'Pop_Density']}, Color: ${color}`);
     return color;
   });
 
@@ -317,9 +339,6 @@ function updateChart(type) {
       </div>
     `;
 
-    console.log('HTML inserted, chart container now contains:', chartContainer.innerHTML);
-    console.log('Chart population container exists:', !!document.querySelector('#chart-population'));
-
     // Force a reflow to ensure DOM is updated
     chartContainer.offsetHeight;
 
@@ -432,12 +451,8 @@ function updateChart(type) {
         
         if (missingElements.length > 0) {
           console.error('Missing chart containers:', missingElements);
-          // Log the current state of the chart container
-          console.log('Chart container HTML:', chartContainer.innerHTML);
-          
           // Try to recreate the HTML if it's missing
           if (chartContainer.innerHTML.trim() === '') {
-            console.log('Chart container is empty, recreating HTML...');
             chartContainer.innerHTML = `
               <div class="demographics-grid">
                 <div class="chart-item">
@@ -469,7 +484,6 @@ function updateChart(type) {
             const retryMissingElements = chartIds.filter(id => !document.querySelector(id));
             if (retryMissingElements.length > 0) {
               console.error('Still missing chart containers after retry:', retryMissingElements);
-              console.log('Chart container HTML after retry:', chartContainer.innerHTML);
               return;
             }
             createDemographicsCharts();
@@ -497,11 +511,6 @@ function updateChart(type) {
 
     // Function to create the actual charts
     function createDemographicsCharts() {
-      console.log('Creating demographics charts...');
-      console.log('Chart container HTML in createDemographicsCharts:', chartContainer.innerHTML);
-      console.log('Income data - City:', demoData.cityValues[1], 'State:', demoData.stateValues[1]);
-      console.log('Raw income data - City:', demoData.rawCityValues[1], 'State:', demoData.rawStateValues[1]);
-      
       // Get the city's color from the map
       const cityColor = getCityColor(selectedCity, 'population'); // Use population colors for consistency
       
@@ -542,10 +551,6 @@ function updateChart(type) {
   const data = prepareChartData(chartData, type);
   const title = type === 'population' ? 'Top 15 Cities by Population' : 'Top 15 Cities by Population Density';
   const yAxisTitle = type === 'population' ? 'Population' : 'Population Density (per sq mile)';
-
-  // Debug: Log the colors array
-  console.log('Chart colors:', data.colors);
-  console.log('Chart data:', data);
 
   const options = {
     chart: {
@@ -737,14 +742,15 @@ function fixPopupAccessibility() {
       const keyItems = layerControl.querySelectorAll('.key-item');
       keyItems.forEach(item => {
         item.addEventListener('mouseenter', (event) => {
-          if (clickedKeyItem && clickedKeyItem !== event.currentTarget) return;
           const range = event.currentTarget.dataset.range;
           highlightCitiesByRange(range, currentKeyType, true);
         });
         item.addEventListener('mouseleave', (event) => {
-          if (clickedKeyItem && clickedKeyItem !== event.currentTarget) return;
-          const range = event.currentTarget.dataset.range;
-          highlightCitiesByRange(range, currentKeyType, false);
+          // Only remove highlight if this item is not clicked
+          if (clickedKeyItem !== event.currentTarget) {
+            const range = event.currentTarget.dataset.range;
+            highlightCitiesByRange(range, currentKeyType, false);
+          }
         });
         item.addEventListener('click', (event) => {
           const clickedItem = event.currentTarget;
@@ -966,40 +972,8 @@ function fixPopupAccessibility() {
     const mapContainer = map.getContainer();
     mapContainer.appendChild(layerControl);
     
-    console.log('Layer control added to:', mapContainer);
-    console.log('Layer control element:', layerControl);
-
     // Add event listeners to initial key items
     addKeyItemEventListeners(layerControl);
-
-    // Inject styles for key-item interactivity if not present
-    if (!document.getElementById('key-item-style')) {
-      const style = document.createElement('style');
-      style.id = 'key-item-style';
-      style.textContent = `
-        .key-item {
-          cursor: pointer;
-          transition: box-shadow 0.2s, background 0.2s;
-          border-radius: 2px;
-          padding: 2px;
-          border: 1px solid transparent;
-        }
-        .key-item:last-child { margin-bottom: 0; }
-        .key-item:hover {
-          box-shadow: 0 0 0 1px #fff, 0 0 6px 1px rgba(0,0,0,0.10);
-          background: rgba(255,255,255,0.05);
-          border-radius: 2px;
-          border: 1px solid #fff;
-        }
-        .key-item.clicked {
-          box-shadow: 0 0 0 1px #fff, 0 0 8px 2px rgba(0,0,0,0.15);
-          background: rgba(255,255,255,0.10);
-          border-radius: 2px;
-          border: 1px solid #fff;
-        }
-      `;
-      document.head.appendChild(style);
-    }
 
     // Add chart toggle button
     const chartToggle = document.createElement('button');
@@ -1018,10 +992,11 @@ function fixPopupAccessibility() {
       } else {
         chartPane.classList.add('expanded');
         chartToggle.textContent = '📊 Hide Charts';
+        // Always ensure chartData is set and show population chart
         if (!chartData) {
           chartData = geojson;
-          updateChart('population');
         }
+        updateChart('population');
       }
     });
 
@@ -1126,6 +1101,7 @@ function fixPopupAccessibility() {
     // Layer switching functionality
     document.getElementById('population-btn').addEventListener('click', function() {
       clearAllHighlights();
+      clickedKeyItem = null; // Clear clicked item when switching tabs
       updateColorKey('population', layerControl);
       map.setLayoutProperty('city-fills-population', 'visibility', 'visible');
       map.setLayoutProperty('city-fills-density', 'visibility', 'none');
@@ -1154,6 +1130,7 @@ function fixPopupAccessibility() {
 
     document.getElementById('density-btn').addEventListener('click', function() {
       clearAllHighlights();
+      clickedKeyItem = null; // Clear clicked item when switching tabs
       updateColorKey('density', layerControl);
       map.setLayoutProperty('city-fills-population', 'visibility', 'none');
       map.setLayoutProperty('city-fills-density', 'visibility', 'visible');
@@ -1258,13 +1235,6 @@ function fixPopupAccessibility() {
       );
       hoveredCityId = null;
     }
-  });
-
-  // Uncomment to see available layers
-  const layers = map.getStyle().layers;
-  console.log("Available layers:");
-  layers.forEach(layer => {
-    console.log(layer.id);
   });
 
   console.log("Map loaded with Colorado cities");
